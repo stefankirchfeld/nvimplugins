@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Create canvas.nvim diagrams and render them with the Neovim engine."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+
+class CanvasError(Exception):
+    pass
+
+
+def load(path):
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def write(path, contents):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(contents)
+        if path.exists():
+            temporary.chmod(path.stat().st_mode & 0o777)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+
+
+def emit(data):
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def engine(request):
+    driver = Path(__file__).resolve().parent.parent / 'engine.lua'
+    env = dict(os.environ)
+    env['NVIM_LOG_FILE'] = os.devnull
+    try:
+        result = subprocess.run([env.get('CANVAS_NVIM', 'nvim'), '--headless', '-n', '-u', 'NONE', '-i', 'NONE', '-l', str(driver)],
+                                input=json.dumps(request), text=True, capture_output=True, env=env, timeout=30)
+    except FileNotFoundError as error:
+        raise CanvasError('canvas CLI requires Neovim (nvim on PATH, or set CANVAS_NVIM)') from error
+    except subprocess.TimeoutExpired as error:
+        raise CanvasError('canvas engine timed out after 30 seconds') from error
+    if result.returncode:
+        try:
+            message = json.loads(result.stderr)['error']
+        except (json.JSONDecodeError, KeyError):
+            message = result.stderr.strip()
+        raise CanvasError(message)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise CanvasError('canvas engine returned invalid JSON: ' + result.stderr.strip()) from error
+
+
+def parser():
+    cli = argparse.ArgumentParser(description='Create and inspect canvas.nvim diagrams. Coordinates are 1-based rows and columns.')
+    commands = cli.add_subparsers(dest='command', required=True)
+    help_text = {
+        'create': 'Create an empty JSON sidecar', 'box': 'Add a rectangle or diamond with attached multiline plain text',
+        'text': 'Add free text (multiline supported)', 'connect': 'Connect two shape IDs, or a shape to a position',
+        'move': 'Reposition a shape; moving a box carries fully enclosed shapes, free endpoints, and manual routes', 'delete': 'Delete an element and its attached connectors',
+        'inspect': 'Print the state JSON or one element', 'render': 'Render the sidecar using the Neovim engine',
+        'document': 'Create a Markdown document with an editable canvas fence',
+        'validate': 'Check routing and text crossing box borders; print JSON, exit 1 for overflow; never writes state',
+    }
+    parsers = {}
+    for name, description in help_text.items():
+        sub = commands.add_parser(name, help=description, description=description)
+        sub.add_argument('file', type=Path, help='JSON sidecar path')
+        parsers[name] = sub
+    for name in ('create', 'document'):
+        parsers[name].add_argument('--force', action='store_true', help='Replace an existing output file')
+    for name in ('box', 'text', 'connect'):
+        parsers[name].add_argument('--id', type=int, help='Explicit unused ID; otherwise allocated automatically')
+        parsers[name].add_argument('--label', default='', help='Literal text; box and text labels support newlines')
+    for name in ('box', 'text', 'move'):
+        parsers[name].add_argument('--row', type=int, required=True, help='Top row, 1-based')
+        parsers[name].add_argument('--col', type=int, required=True, help='Left column, 1-based')
+    for name in ('box', 'text'):
+        parsers[name].add_argument('--kind', help='Semantic identifier, e.g. decision, service, database, queue; independent of appearance')
+        parsers[name].add_argument('--role', choices=('node', 'container', 'annotation'), help='Semantic role for agents and export')
+        parsers[name].add_argument('--parent-id', dest='parent_id', type=int, help='Existing container ID; semantic containment is independent of geometric moves')
+        for field in ('fg', 'bg', 'text-color'):
+            parsers[name].add_argument('--' + field, help='Neovim color name or #RRGGBB')
+    parsers['box'].add_argument('--shape', default=None, help='b, br, bd, brd, bx (diamond); c/i modifiers set centered anchor')
+    parsers['box'].add_argument('--outline', choices=('rectangle', 'diamond'), help='Appearance only; diamond supports multiline labels without auto-fitting')
+    parsers['box'].add_argument('--size', type=float, help='Diamond scale in half steps: 1 (13×7), 1.5 (19×10), 2 (25×13), ...; default 1')
+    parsers['box'].add_argument('--width', type=int, help='Rectangle minimum width; legacy explicit diamond width (prefer --size)')
+    parsers['box'].add_argument('--height', type=int, help='Rectangle minimum height; legacy explicit diamond height (prefer --size)')
+    parsers['connect'].add_argument('--from', dest='from_id', type=int, required=True, help='Source shape ID')
+    endpoint = parsers['connect'].add_mutually_exclusive_group(required=True)
+    endpoint.add_argument('--to', dest='to_id', type=int, help='Target shape ID')
+    endpoint.add_argument('--at', type=int, nargs=2, metavar=('ROW', 'COL'), help='Free endpoint position')
+    parsers['connect'].add_argument('--shape', default=None, help='c, ca (arrow), cb (both arrows), cad (dashed arrow)')
+    parsers['connect'].add_argument('--route', help='Routing style (validated by the Lua engine)')
+    parsers['connect'].add_argument('--force-connect-to-side', dest='forceConnectToSide', metavar='SIDE', help='Target side: left, right, top, bottom; empty selects automatically')
+    for name in ('move', 'delete'):
+        parsers[name].add_argument('id', type=int, help='Element ID')
+    parsers['move'].epilog = ('Containment uses complete bounds before the move, including border-touching shapes. '
+                              'Nested shapes move once; partial overlaps stay fixed. Free text is not a container. '
+                              'Connectors reroute on render; fully enclosed manual routes translate. '
+                              'An enclosed free endpoint moves only when its source moves. Returns moved_shapes IDs. '
+                              'The same rules apply in Vim move mode; no persistent groups are stored.')
+    parsers['box'].epilog = ('Labels preserve newlines, indentation, and blank lines and are centered as a block. '
+                             'Rectangles grow to fit; diamonds keep fixed dimensions and allow their own label overflow. '
+                             'Formatting is plain text. Semantic metadata is optional and does not change rendering.')
+    parsers['validate'].epilog = ('Checks free text, box labels, and connector labels against every box border using display widths. '
+                                 'Reports element and box IDs plus text coordinates. Does not detect every visual overlap. '
+                                 'Invalid state or routing fails with an error on stderr. Render --format json also includes overflow issues.')
+    parsers['inspect'].add_argument('--id', type=int, help='Print only this element')
+    parsers['render'].add_argument('--format', choices=('text', 'json'), default='text', help='Plain diagram or lines/bounds/connector paths/overflow issues as JSON')
+    parsers['document'].add_argument('--output', type=Path, required=True, help='New Markdown file')
+    parsers['document'].add_argument('--title', default='Architecture')
+    parsers['document'].add_argument('--description', default='', help='Prose above the diagram')
+    return cli
+
+
+def run(args):
+    path = args.file.expanduser().resolve()
+    if args.command == 'create' and path.exists() and not args.force:
+        raise CanvasError(f'{path} already exists; use --force to replace it')
+    request = {'op': args.command}
+    if args.command != 'create':
+        request['state'] = load(path)
+    if getattr(args, 'id', None) is not None:
+        request['id'] = args.id
+    fields = {key: value for key, value in vars(args).items()
+              if key not in ('command', 'file', 'id', 'force', 'format', 'output', 'title', 'description', 'at') and value is not None}
+    if getattr(args, 'at', None) is not None:
+        fields['row'], fields['col'] = args.at
+    request['fields'] = fields
+    if args.command == 'document':
+        request['op'] = 'render'
+    response = engine(request)
+    if args.command in ('inspect', 'validate'):
+        emit(response['result'])
+        if args.command == 'validate' and not response['result']['valid']:
+            sys.exit(1)
+        return
+    if args.command in ('render', 'document'):
+        rendered = response['rendered']
+        if args.command == 'render':
+            if args.format == 'json':
+                emit(rendered)
+            else:
+                sys.stdout.write('\n'.join(rendered['lines']) + ('\n' if rendered['lines'] else ''))
+        else:
+            output = args.output.expanduser().resolve()
+            if output == path:
+                raise CanvasError('document output must differ from the JSON sidecar')
+            if output.exists() and not args.force:
+                raise CanvasError(f'{output} already exists; use --force to replace it')
+            if '\n' in args.title or '\r' in args.title:
+                raise CanvasError('document title must be one line')
+            relative = os.path.relpath(path, output.parent)
+            attribute = json.dumps(relative, ensure_ascii=False) if any(ch.isspace() or ch == '"' for ch in relative) else relative
+            fence = chr(96) * 3 + 'canvas file=' + attribute
+            contents = '# ' + args.title + '\n\n'
+            if args.description:
+                contents += args.description + '\n\n'
+            contents += fence + '\n' + ('\n'.join(rendered['lines']) or '') + '\n' + chr(96) * 3 + '\n'
+            write(output, contents)
+            emit({'file': str(output), 'canvas': str(path)})
+        return
+    write(path, json.dumps(response['state'], ensure_ascii=False, indent=2) + chr(10))
+    emit({'file': str(path), **response.get('result', {})})
+
+
+if __name__ == '__main__':
+    arguments = parser().parse_args()
+    try:
+        run(arguments)
+    except (CanvasError, OSError, ValueError) as error:
+        print(json.dumps({'error': str(error)}, ensure_ascii=False), file=sys.stderr)
+        sys.exit(1)

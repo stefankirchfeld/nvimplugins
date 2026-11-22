@@ -1,0 +1,197 @@
+{
+  "conns": {
+    "10": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 1,
+      "label": "keys",
+      "style": "direct",
+      "to_id": 3
+    },
+    "11": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 2,
+      "label": "requests",
+      "style": "avoid",
+      "to_id": 4
+    },
+    "12": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 3,
+      "label": "",
+      "style": "avoid",
+      "to_id": 5
+    },
+    "13": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 4,
+      "label": "",
+      "style": "avoid",
+      "to_id": 5
+    },
+    "14": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 5,
+      "label": "apply",
+      "style": "avoid",
+      "to_id": 6
+    },
+    "15": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 6,
+      "label": "",
+      "style": "avoid",
+      "to_id": 8
+    },
+    "16": {
+      "arrow": true,
+      "arrow_both": true,
+      "cmd_str": "cb",
+      "dashed": false,
+      "from_id": 6,
+      "label": "codec",
+      "style": "avoid",
+      "to_id": 7
+    },
+    "17": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "forceConnectToSide": "left",
+      "from_id": 8,
+      "label": "",
+      "style": "direct",
+      "to_id": 1
+    },
+    "18": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 8,
+      "label": "text",
+      "style": "avoid",
+      "to_id": 9
+    }
+  },
+  "next_id": 20,
+  "shapes": {
+    "1": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#a6e3a1",
+      "height": 5,
+      "label": "Vim buffer (edit + view)",
+      "left": 4,
+      "top": 2,
+      "variant": "r",
+      "width": 31
+    },
+    "2": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#89b4fa",
+      "height": 5,
+      "label": "Agent CLI",
+      "left": 49,
+      "top": 2,
+      "variant": "r",
+      "width": 29
+    },
+    "3": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#89b4fa",
+      "height": 3,
+      "label": "Vim UI adapters",
+      "left": 4,
+      "top": 12,
+      "variant": "r",
+      "width": 31
+    },
+    "4": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#89b4fa",
+      "height": 3,
+      "label": "Headless Lua bridge",
+      "left": 49,
+      "top": 12,
+      "variant": "r",
+      "width": 29
+    },
+    "5": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#cba6f7",
+      "height": 3,
+      "label": "Scene API (shared rules)",
+      "left": 25,
+      "top": 22,
+      "variant": "r",
+      "width": 29
+    },
+    "6": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#94e2d5",
+      "height": 3,
+      "label": "State + Shape/Conn models",
+      "left": 25,
+      "top": 32,
+      "variant": "r",
+      "width": 29
+    },
+    "7": {
+      "anchor": "top-left",
+      "cmd_str": "bd",
+      "fg": "#f9e2af",
+      "height": 3,
+      "label": "JSON sidecar",
+      "left": 63,
+      "top": 32,
+      "variant": "d",
+      "width": 16
+    },
+    "8": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#fab387",
+      "height": 3,
+      "label": "Grid + Router + Renderer",
+      "left": 25,
+      "top": 42,
+      "variant": "r",
+      "width": 29
+    },
+    "9": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#a6e3a1",
+      "height": 3,
+      "label": "CLI output",
+      "left": 63,
+      "top": 42,
+      "variant": "r",
+      "width": 16
+    }
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "conns": {
+    "7": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 1,
+      "label": "edit",
+      "style": "avoid",
+      "to_id": 3
+    },
+    "8": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 2,
+      "label": "write",
+      "style": "avoid",
+      "to_id": 4
+    },
+    "9": {
+      "arrow": true,
+      "arrow_both": true,
+      "cmd_str": "cb",
+      "dashed": false,
+      "from_id": 3,
+      "label": "load/save",
+      "style": "avoid",
+      "to_id": 4
+    },
+    "10": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 3,
+      "label": "build",
+      "style": "avoid",
+      "to_id": 5
+    },
+    "11": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 2,
+      "label": "render",
+      "style": "avoid",
+      "to_id": 3
+    },
+    "12": {
+      "arrow": true,
+      "arrow_both": false,
+      "cmd_str": "ca",
+      "dashed": false,
+      "from_id": 5,
+      "label": "output",
+      "style": "avoid",
+      "to_id": 6
+    }
+  },
+  "next_id": 13,
+  "shapes": {
+    "1": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#89b4fa",
+      "height": 5,
+      "label": "Vim canvas UI",
+      "left": 3,
+      "top": 2,
+      "variant": "r",
+      "width": 30
+    },
+    "2": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#a6e3a1",
+      "height": 5,
+      "label": "Agent CLI",
+      "left": 50,
+      "top": 2,
+      "variant": "r",
+      "width": 30
+    },
+    "3": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#89b4fa",
+      "height": 5,
+      "label": "State + Shape/Conn models",
+      "left": 3,
+      "top": 12,
+      "variant": "r",
+      "width": 30
+    },
+    "4": {
+      "anchor": "top-left",
+      "cmd_str": "bd",
+      "fg": "#f9e2af",
+      "height": 5,
+      "label": "JSON sidecar",
+      "left": 50,
+      "top": 12,
+      "variant": "d",
+      "width": 30
+    },
+    "5": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#cba6f7",
+      "height": 5,
+      "label": "Grid + Router + Renderer",
+      "left": 3,
+      "top": 22,
+      "variant": "r",
+      "width": 30
+    },
+    "6": {
+      "anchor": "top-left",
+      "cmd_str": "br",
+      "fg": "#cba6f7",
+      "height": 5,
+      "label": "Diagram text",
+      "left": 50,
+      "top": 22,
+      "variant": "r",
+      "width": 30
+    }
+  }
+}

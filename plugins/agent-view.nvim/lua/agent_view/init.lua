@@ -6,7 +6,6 @@ local config = {}
 local global_keymap
 local view
 local icons = { idle = '', working = '󰔟', waiting = '󰋗', done = '󰄬', error = '󰅚' }
-local highlights = { idle = 'Comment', working = 'DiagnosticInfo', waiting = 'DiagnosticWarn', done = 'DiagnosticOk', error = 'DiagnosticError' }
 
 local function directory()
   return config.state_dir or vim.g.agent_view_dir or vim.env.NVIM_AGENTS_DIR or vim.env.MESA_AGENTS_DIR
@@ -34,8 +33,9 @@ function M.records()
     end
   end
   table.sort(entries, function(a, b)
-    if a.folder ~= b.folder then return a.folder < b.folder end
-    if a.agent ~= b.agent then return a.agent < b.agent end
+    local at = tonumber(a.updated_at) or tonumber(a.created_at) or 0
+    local bt = tonumber(b.updated_at) or tonumber(b.created_at) or 0
+    if at ~= bt then return at > bt end
     return tostring(a.id) < tostring(b.id)
   end)
   return entries
@@ -54,45 +54,37 @@ local function render()
   if not view or not vim.api.nvim_buf_is_valid(view.buf) then return end
   local cursor = vim.api.nvim_win_get_cursor(view.win)[1]
   local old = view.rows and view.rows[cursor]
-  local on_context = view.context_rows and view.context_rows[cursor]
   view.entries = M.records()
-  view.rows, view.context_rows = {}, {}
-  local function hint(action, default)
-    local key = config.buffer_keymaps and config.buffer_keymaps[action]
-    if key == nil then key = default end
-    if key == false then return '(unmapped)' end
-    return type(key) == 'table' and table.concat(key, '/') or key
-  end
-  local lines = { '  Agents', string.format('  %s: focus agent   %s: refresh   %s: close',
-    hint('focus', '<CR>'), hint('refresh', 'r'), hint('close', 'q/<Esc>')) }
-  local selected = 3
-  for index, entry in ipairs(view.entries) do
-    local name = vim.fn.fnamemodify(entry.folder, ':t')
-    local label = entry.agent:sub(1, 1):upper() .. entry.agent:sub(2)
-    local age = math.max(0, os.time() - (tonumber(entry.updated_at) or os.time()))
-    local title = type(entry.title) == 'string' and entry.title:gsub('[\r\n]', ' ') or 'Untitled session'
-    lines[#lines + 1] = string.format('  %s  %s: %s   %s · %ds', icons[entry.status], label, title, entry.status, age)
-    local heading = #lines
-    local context = '    ' .. name
-    if type(entry.last_project) == 'string' then
-      local project = vim.fn.fnamemodify(entry.last_project, ':t')
-      context = context .. ' → ' .. project .. ' (last edited project)'
-    end
-    lines[#lines + 1] = context:gsub('[\r\n]', ' ')
-    view.rows[heading], view.rows[heading + 1] = entry, entry
-    view.context_rows[heading + 1] = true
-    if old and old.id == entry.id then selected = heading + (on_context and 1 or 0) end
-  end
-  if #view.entries == 0 then
-    lines[#lines + 1] = '  No agents running. New Agent view launches register here.'
-  end
+  local colors = require('agent_view.colors').groups(view.entries, directory(), config.colors)
+  local width = vim.api.nvim_win_get_width(view.win)
+  local lines, rows, spans = require('agent_view.table').layout(view.entries, width, os.time(), colors, config)
+  view.rows = rows
+  local selected = #view.entries > 0 and 5 or 1
+  for row, entry in pairs(rows) do if old and entry.id == old.id then selected = row end end
   vim.bo[view.buf].modifiable = true
   vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
   vim.bo[view.buf].modifiable = false
   vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
-  for row, entry in pairs(view.rows) do
-    vim.api.nvim_buf_add_highlight(view.buf, view.ns,
-      view.context_rows[row] and 'Comment' or highlights[entry.status], row - 1, 0, -1)
+  for _, span in ipairs(spans) do
+    vim.api.nvim_buf_add_highlight(view.buf, view.ns, span.group, span.row, span.first, span.last)
+  end
+  local function hint(action, default)
+    local key = config.buffer_keymaps and config.buffer_keymaps[action]
+    if key == nil then key = default end
+    if key == false then return nil end
+    if type(key) == 'table' then key = table.concat(key, '/') end
+    return key:gsub('<CR>', 'Enter'):gsub('<Esc>', 'Esc')
+  end
+  local hints = {}
+  for _, action in ipairs({ { 'focus', '<CR>', 'focus' }, { 'refresh', 'r', 'refresh' }, { 'close', 'q', 'close' } }) do
+    local key = hint(action[1], action[2])
+    if key then hints[#hints + 1] = key .. ' ' .. action[3] end
+  end
+  local text = table.concat(hints, '  ·  ')
+  local available = math.max(0, width - vim.fn.strdisplaywidth(lines[1]) - 3)
+  if available > 0 then
+    text = require('agent_view.table').fit(text, available):gsub('%s+$', '')
+    vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, { virt_text = { { text, 'Comment' } }, virt_text_pos = 'right_align' })
   end
   vim.api.nvim_win_set_cursor(view.win, { math.min(selected, #lines), 0 })
 end
@@ -135,13 +127,14 @@ function M.toggle()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].filetype = 'agent-view'
-  local width = math.max(1, math.min(90, vim.o.columns - 4))
-  local height = math.max(1, math.min(16, vim.o.lines - 4))
+  local width = math.max(1, math.min(config.width or 120, vim.o.columns - 4))
+  local height = math.max(1, math.min(#M.records() + 4, config.max_height or 20, vim.o.lines - 4))
   local win = vim.api.nvim_open_win(buf, true, { relative = 'editor', width = width, height = height,
     row = math.max(0, math.floor((vim.o.lines - height) / 2) - 1), col = math.max(0, math.floor((vim.o.columns - width) / 2)), border = 'rounded' })
   vim.wo[win].number = false
   vim.wo[win].relativenumber = false
   vim.wo[win].cursorline = true
+  vim.wo[win].wrap = false
   view = { buf = buf, win = win, entries = {}, ns = vim.api.nvim_create_namespace('AgentView'), timer = uv.new_timer() }
   local function bind(action, defaults, callback, desc)
     local configured = config.buffer_keymaps and config.buffer_keymaps[action]

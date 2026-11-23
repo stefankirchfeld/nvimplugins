@@ -77,13 +77,17 @@ Start an agent inside tmux. Run `:Agents` or press `<leader>aa` in Neovim, send 
 | `r` | Refresh. |
 | `q` / Escape | Close. |
 
-Either row selects the same agent. Inside its tmux server, focus switches session/window/pane; outside that server, navigation opens a terminal attachment in Neovim.
+Each row represents one agent, sorted by latest activity first. Conversation colors are assigned from a pool and stored in the shared state directory, so they remain stable across editors and resumed conversations. The pool reuses colors after it is exhausted. Idle/done use plain status text; working/waiting/error include an attention glyph. Key hints appear as muted virtual text beside the title. Inside its tmux server, focus switches session/window/pane; outside that server, navigation opens a terminal attachment in Neovim.
 
 ~~~lua
 require('agent_view').setup({
   keymap = '<leader>aa',        -- false disables the global toggle
   notification_timeout = 5000, -- milliseconds
   session_scope = true,        -- false includes other tmux sessions
+  width = 120,                -- capped to the available editor width
+  max_height = 20,            -- grows with the number of agents
+  status_icons = true,        -- false shows plain status text only
+  -- colors = { '#7ec8e3', '#f4a261', '#52b788', '#c77dff' },
   -- state_dir = vim.fn.expand('~/.local/state/my-agents'),
   buffer_keymaps = {
     focus = '<CR>',
@@ -132,6 +136,8 @@ Write your request in the scratch buffer; `:w` sends it. `open_ref()` sends only
 | done | Turn finished; it does not guarantee task success. |
 
 Approval resolution has no separate hook here, so waiting can linger until the next tool event. Project tracking recognizes Write/Edit/apply_patch, including creation and patch renames. Arbitrary shell edits are not inferred.
+
+The shared directory also keeps conversation color assignments in `appearance/colors.json`. Use the same color pool across editors for matching colors. On narrow windows the table hides secondary columns to keep conversation/status readable.
 
 The shared directory stores live launcher records, `conversations/` metadata keyed by harness + native conversation ID, and `notifications/` completion events retained for seven days. Resume restores project/file metadata with fresh status and tmux coordinates. Dead launchers are ignored and normal exit removes live records.
 

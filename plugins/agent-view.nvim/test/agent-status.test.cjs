@@ -298,11 +298,26 @@ test('concurrent title refresh cannot overwrite edit/status metadata', async () 
 
 test('configurable UI bindings and scoped routing work in Neovim', t => {
   if (spawnSync('nvim', ['--version']).error) return t.skip('Neovim is not installed')
-  for (const script of ['check-config.lua', 'check-routing.lua']) {
+  for (const script of ['check-config.lua', 'check-routing.lua', 'check-table.lua']) {
     const result = spawnSync('nvim', ['--headless', '-u', 'NONE', '-i', 'NONE', '-l', path.join(__dirname, script)], {
       env: { ...process.env, AGENT_VIEW_ROOT: path.resolve(__dirname, '..') }, encoding: 'utf8', timeout: 15000,
     })
     assert.equal(result.status, 0, result.stderr)
     assert.match(result.stdout + result.stderr, /PASS:/)
   }
+})
+
+
+test('conversation colors persist across independent Neovim instances and list order', t => {
+  if (spawnSync('nvim', ['--version']).error) return t.skip('Neovim is not installed')
+  const dir = path.join(root, 'colors-shared')
+  const run = reverse => {
+    const result = spawnSync('nvim', ['--headless', '-u', 'NONE', '-i', 'NONE', '-l', path.join(__dirname, 'check-colors.lua')], {
+      env: { ...process.env, AGENT_VIEW_ROOT: path.resolve(__dirname, '..'), COLOR_STATE_DIR: dir, REVERSE_COLORS: reverse },
+      encoding: 'utf8', timeout: 15000,
+    })
+    assert.equal(result.status, 0, result.stderr)
+    return JSON.parse(result.stdout)
+  }
+  assert.deepEqual(run('0'), run('1'))
 })

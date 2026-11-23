@@ -41,10 +41,14 @@ a.updated_at = 400; save(a)
 vim.fn.maparg('r', 'n', false, true).callback()
 assert(vim.api.nvim_win_get_cursor(0)[1] == 7, 'selection did not follow its agent after reorder')
 local table_view = require('agent_view.table')
-for _, width in ipairs({ 20, 45, 65, 90, 120 }) do
+for _, width in ipairs({ 20, 45, 65, 78, 90, 120 }) do
   local rendered = table_view.layout(records, width, 500, first, {})
   for _, line in ipairs(rendered) do assert(vim.fn.strdisplaywidth(line) <= width, 'narrow table overflows') end
+  if width >= 65 then assert(rendered[3]:find('Scope', 1, true), 'project context disappeared too early') end
 end
+local wide = table_view.layout(records, 120, 500, first, {})
+local title_cell = vim.split(wide[5], ' │ ', { plain = true })[2]
+assert(vim.fn.strdisplaywidth(title_cell) == 42, 'conversation column should be capped')
 agents.close()
 vim.fn.delete(dir, 'rf')
 print('PASS: activity table, ghost hints, sticky colors, selection and narrow layouts')

@@ -25,11 +25,22 @@ function M.layout(entries, width, now, identity_groups, options)
     columns[#columns + 1] = { key = 'status', label = 'Status', width = 10 }
     columns[#columns + 1] = { key = 'age', label = 'Activity', width = 8 }
   end
-  if content >= 60 then table.insert(columns, 1, { key = 'agent', label = 'Agent', width = 7 }) end
-  if content >= 86 then table.insert(columns, #columns - 1, { key = 'scope', label = 'Scope → last edit', width = 23 }) end
+  -- Preserve project context before spending space on the harness column.
+  if content >= 78 then table.insert(columns, 1, { key = 'agent', label = 'Agent', width = 7 }) end
+  local scope
+  if content >= 58 then
+    scope = { key = 'scope', label = 'Scope → last edit', width = content >= 86 and 23 or 18 }
+    table.insert(columns, #columns - 1, scope)
+  end
   local fixed = 3 * (#columns - 1)
   for _, col in ipairs(columns) do if col.key ~= 'title' then fixed = fixed + col.width end end
-  for _, col in ipairs(columns) do if col.key == 'title' then col.width = math.max(1, content - fixed) end end
+  for _, col in ipairs(columns) do
+    if col.key == 'title' then
+      local available = math.max(1, content - fixed)
+      col.width = scope and math.min(available, options.max_title_width or 42) or available
+      if scope then scope.width = scope.width + available - col.width end
+    end
+  end
   local header = {}
   for _, col in ipairs(columns) do header[#header + 1] = M.fit(col.label, col.width) end
   local lines = { '  Agents  · ' .. #entries, '', '  ' .. table.concat(header, ' │ '), '  ' .. string.rep('─', content) }

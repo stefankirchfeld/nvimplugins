@@ -113,6 +113,7 @@ require('agent_view').setup({
   notification_timeout = 5000, -- milliseconds
   session_scope = true,        -- false includes other tmux sessions
   width = 120,                -- capped to the available editor width
+  max_title_width = 42,       -- reserve remaining space for project context
   max_height = 20,            -- grows with the number of agents
   status_icons = true,        -- false shows plain status text only
   -- colors = { '#7ec8e3', '#f4a261', '#52b788', '#c77dff' },

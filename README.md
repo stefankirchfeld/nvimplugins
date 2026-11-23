@@ -5,7 +5,7 @@ Two independent plugins for people who work in Neovim: draw editable diagrams in
 | Plugin | What it does | Requirements |
 | --- | --- | --- |
 | [canvas.nvim](plugins/canvas.nvim/) | Draw boxes, diamonds and connectors; save readable text with editable JSON scenes. | Neovim; Python 3 for the optional CLI. |
-| [agent-view.nvim](plugins/agent-view.nvim/) | See agent conversations and status, jump to their tmux panes, and receive completion notifications in another editor. | Neovim, Node.js and an installed harness; tmux for navigation. |
+| [agent-view.nvim](plugins/agent-view.nvim/) | See agent conversations and status, jump to their tmux panes, and receive completion and input-request notifications in another editor. | Neovim, Node.js and an installed harness; tmux for navigation. |
 
 Install either plugin or both. They do not depend on one another, a dashboard, or a worktree manager. Tested with Neovim 0.12.1.
 
@@ -21,7 +21,7 @@ Canvas turns text and Markdown buffers into editing surfaces. Create and move sh
 
 ## Find the agent that needs you
 
-Agent view shows an activity-sorted table of native conversation titles, status, starting folders and the most recently edited project. Conversation colors stay consistent across editors and resumed sessions. Select an entry to focus its pane. Completion events reach every running Neovim in the same tmux session, including the editor you switched to while an agent was working.
+Agent view shows an activity-sorted table of native conversation titles, status, starting folders and the most recently edited project. Conversation colors stay consistent across editors and resumed sessions. Select an entry to focus its pane. Completion and input-request events reach every running Neovim in the same tmux session, including the editor you switched to while an agent was working.
 
 ![Agent activity table with conversation colors, status and latest activity](docs/screenshots/agents1.png)
 

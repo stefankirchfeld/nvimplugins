@@ -195,18 +195,25 @@ function M.check_notifications()
       local ok, entry = pcall(function()
         return vim.json.decode(table.concat(vim.fn.readfile(directory() .. '/notifications/' .. name), '\n'))
       end)
-      if ok and type(entry) == 'table' and type(entry.completed_at) == 'number' then
-        notifications.seen[name] = true
+      local occurred_at = ok and type(entry) == 'table' and (entry.occurred_at or entry.completed_at)
+      if type(occurred_at) == 'number' then
         local same_session = config.session_scope == false or scope == false or (entry.session_id == scope.session
           and type(entry.tmux_socket) == 'string'
           and (uv.fs_realpath(entry.tmux_socket) or entry.tmux_socket) == scope.socket)
-        if entry.completed_at >= notifications.since and same_session
+        local supported = entry.type == 'done' or entry.type == 'waiting'
+        if occurred_at < notifications.since or not supported then notifications.seen[name] = true end
+        if occurred_at >= notifications.since and same_session and supported
           and type(entry.agent) == 'string' and type(entry.folder) == 'string' then
           local label = entry.agent:sub(1, 1):upper() .. entry.agent:sub(2)
           local title = type(entry.title) == 'string' and entry.title:gsub('[\r\n]', ' ') or 'Untitled session'
           local project = vim.fn.fnamemodify(entry.last_project or entry.folder, ':t')
-          vim.notify(label .. ': ' .. title .. '\n' .. project .. ' · turn finished', vim.log.levels.INFO,
-            { title = 'Agent finished', icon = icons.done, timeout = config.notification_timeout or 5000 })
+          local waiting = entry.type == 'waiting'
+          local delivered = pcall(vim.notify, label .. ': ' .. title .. '\n' .. project
+            .. (waiting and ' · waiting for input' or ' · turn finished'),
+            waiting and vim.log.levels.WARN or vim.log.levels.INFO,
+            { title = waiting and 'Agent needs input' or 'Agent finished',
+              icon = waiting and icons.waiting or icons.done, timeout = config.notification_timeout or 5000 })
+          if delivered then notifications.seen[name] = true end
         end
       end
     end

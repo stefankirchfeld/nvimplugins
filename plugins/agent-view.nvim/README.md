@@ -132,9 +132,9 @@ require('agent_view').setup({
 
 For your own global shortcut, set `keymap = false` and map `require('agent_view').toggle` with `vim.keymap.set()`. Use `buffer_keymaps` for popup controls; `on_attach` runs afterwards and can add or override local keys. Changes apply to the next opened popup.
 
-## Completion notifications
+## Completion and input notifications
 
-Each running Neovim in the agent's tmux socket/session reads completion events independently. One editor does not consume the event for another. Events survive quick next turns and agent exit; repeated done status does not produce another notification.
+Each running Neovim in the agent's tmux socket/session reads completion and input-request events independently. One editor does not consume the event for another. Entering waiting shows an Agent needs input warning; finishing a turn shows an Agent finished notification. Repeated reports of the same waiting/done state do not repeat alerts. Events survive quick next turns and agent exit. Events skipped for another tmux session or a temporary notifier failure remain available for a later matching reader/check.
 
 The plugin calls `vim.notify()` with a five-second timeout. **Floating timed popups need a notifier that honors that option**, such as [snacks.nvim](https://github.com/folke/snacks.nvim) or [nvim-notify](https://github.com/rcarriga/nvim-notify). Otherwise, Neovim's normal notification display is used.
 
@@ -168,7 +168,7 @@ Approval resolution has no separate hook here, so waiting can linger until the n
 
 The shared directory also keeps conversation color assignments in `appearance/colors.json`. Use the same color pool across editors for matching colors. On narrow windows the table hides secondary columns to keep conversation/status readable.
 
-The shared directory stores live launcher records, `conversations/` metadata keyed by harness + native conversation ID, and `notifications/` completion events retained for seven days. Resume restores project/file metadata with fresh status and tmux coordinates. Dead launchers are ignored and normal exit removes live records.
+The shared directory stores live launcher records, `conversations/` metadata keyed by harness + native conversation ID, and `notifications/` completion and input-request events retained for seven days. Resume restores project/file metadata with fresh status and tmux coordinates. Dead launchers are ignored and normal exit removes live records.
 
 If you customize storage, set `NVIM_AGENTS_DIR` for agents and `state_dir` for editors to the **same directory**. The historical compatibility default is `~/.local/state/mesa/agents` or its XDG equivalent; no Mesa code is required. Old environment names remain accepted for migration. Titles and edited file paths are stored locally, but prompts, tokens and transcript bodies are not.
 

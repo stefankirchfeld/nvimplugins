@@ -91,9 +91,11 @@ function conversationDetails(record) {
   }
   return details
 }
-function completion(record, payload, dir) {
+function notification(record, payload, dir, type) {
   const eventId = crypto.randomUUID()
-  const event = { ...record, event_id: eventId, type: 'done', completed_at: Date.now(),
+  const occurredAt = Date.now()
+  const event = { ...record, event_id: eventId, type, occurred_at: occurredAt,
+    ...(type === 'done' ? { completed_at: occurredAt } : {}),
     turn_id: payload.turn_id }
   atomicWrite(path.join(dir, 'notifications', eventId + '.json'), event)
   // Keep a week of events; readers maintain their own cursor and never consume files.
@@ -195,8 +197,11 @@ function update(status, env = process.env, payload = {}) {
     // A durable event survives a quick next turn or removal of the live record.
     if (status === 'done' && (current.status !== 'done' ||
       (payload.turn_id && payload.turn_id !== current.completed_turn_id))) {
-      completion(next, payload, directory(env))
+      notification(next, payload, directory(env), 'done')
       next.completed_turn_id = payload.turn_id
+    }
+    if (status === 'waiting' && current.status !== 'waiting') {
+      notification(next, payload, directory(env), 'waiting')
     }
     atomicWrite(file, next)
     return true

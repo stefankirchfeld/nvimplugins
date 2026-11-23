@@ -214,20 +214,20 @@ test('completion events survive immediate next turn and exit, and repeated Stop 
   assert.equal(fs.existsSync(a.file), false)
 })
 
-test('two Neovim instances independently notify from durable events and filter tmux sessions', async t => {
+for (const eventType of ['done', 'waiting']) test('two Neovim instances independently receive ' + eventType + ' events and filter tmux sessions', async t => {
   if (spawnSync('nvim', ['--version']).error) return t.skip('Neovim is not installed')
-  const dir = path.join(root, 'nvim-events')
+  const dir = path.join(root, 'nvim-events-' + eventType)
   fs.mkdirSync(path.join(dir, 'notifications'), { recursive: true })
-  const lua = path.join(root, 'notifications.lua')
+  const lua = path.join(root, 'notifications-' + eventType + '.lua')
   fs.writeFileSync(lua, [
     'vim.opt.rtp:append(vim.env.MESA_TEST_NVIM)',
     'vim.g.agent_view_dir = vim.env.NVIM_AGENTS_DIR',
     'vim.env.TMUX = "/tmp/test-mesa-server,1,0"; vim.env.TMUX_PANE = "%9"',
     'vim.system = function(_, _, cb) cb({ code = 0, stdout = "/tmp/test-mesa-server\\t$1\\n" }) end',
     'local count = 0',
-    'vim.notify = function(message, _, opts)',
-    '  if opts and opts.title == "Agent finished" then',
-    '    assert(opts.timeout == 5000); assert(message:find("A finished task", 1, true)); count = count + 1',
+    'vim.notify = function(message, level, opts)',
+    '  if opts and opts.title == ' + JSON.stringify(eventType === 'waiting' ? 'Agent needs input' : 'Agent finished') + ' then',
+    '    assert(opts.timeout == 5000); assert(message:find("A finished task", 1, true)); assert(level == vim.log.levels.' + (eventType === 'waiting' ? 'WARN' : 'INFO') + '); count = count + 1',
     '  end',
     'end',
     'local agents = require("agent_view"); agents.setup()',
@@ -241,7 +241,7 @@ test('two Neovim instances independently notify from durable events and filter t
   ].join('\n'))
   const children = [], results = []
   for (let i = 0; i < 2; i++) {
-    const ready = path.join(root, 'nvim-ready-' + i)
+    const ready = path.join(root, 'nvim-ready-' + eventType + '-' + i)
     const child = spawn('nvim', ['--headless', '-u', 'NONE', '-i', 'NONE', '-l', lua], {
       env: { ...process.env, NVIM_AGENTS_DIR: dir, MESA_TEST_READY: ready,
         MESA_TEST_NVIM: path.resolve(__dirname, '..') }, stdio: ['ignore', 'pipe', 'pipe'],
@@ -260,10 +260,10 @@ test('two Neovim instances independently notify from durable events and filter t
       assert.ok(Date.now() < deadline, 'editors failed to initialize')
       await new Promise(resolve => setTimeout(resolve, 20))
     }
-    const event = { agent: 'codex', folder: root, title: 'A finished task', type: 'done',
-      completed_at: Date.now(), session_id: '$1', tmux_socket: '/tmp/test-mesa-server' }
+    const event = { agent: 'codex', folder: root, title: 'A finished task', type: eventType,
+      occurred_at: Date.now(), session_id: '$1', tmux_socket: '/tmp/test-mesa-server' }
     fs.writeFileSync(path.join(dir, 'notifications', 'other-session.json'), JSON.stringify({ ...event, session_id: '$2' }))
-    fs.writeFileSync(path.join(dir, 'notifications', 'old.json'), JSON.stringify({ ...event, completed_at: 1 }))
+    fs.writeFileSync(path.join(dir, 'notifications', 'old.json'), JSON.stringify({ ...event, occurred_at: 1 }))
     fs.writeFileSync(path.join(dir, 'notifications', 'finished.json'), JSON.stringify(event))
     await Promise.all(results)
   } finally {
@@ -298,7 +298,7 @@ test('concurrent title refresh cannot overwrite edit/status metadata', async () 
 
 test('configurable UI bindings and scoped routing work in Neovim', t => {
   if (spawnSync('nvim', ['--version']).error) return t.skip('Neovim is not installed')
-  for (const script of ['check-config.lua', 'check-routing.lua', 'check-table.lua']) {
+  for (const script of ['check-config.lua', 'check-routing.lua', 'check-table.lua', 'check-notifications.lua']) {
     const result = spawnSync('nvim', ['--headless', '-u', 'NONE', '-i', 'NONE', '-l', path.join(__dirname, script)], {
       env: { ...process.env, AGENT_VIEW_ROOT: path.resolve(__dirname, '..') }, encoding: 'utf8', timeout: 15000,
     })
@@ -320,4 +320,25 @@ test('conversation colors persist across independent Neovim instances and list o
     return JSON.parse(result.stdout)
   }
   assert.deepEqual(run('0'), run('1'))
+})
+
+
+test('waiting transitions write durable input-request events without repeated alerts', () => {
+  const env = { ...process.env, NVIM_AGENTS_DIR: path.join(root, 'waiting-events') }
+  const a = status.start({ agent: 'codex', folder: root, env, tmux: { session_id: '$1', tmux_socket: '/tmp/server' } })
+  status.update('working', a.env)
+  status.update('waiting', a.env)
+  status.update('waiting', a.env)
+  const dir = path.join(a.dir, 'notifications')
+  assert.equal(fs.readdirSync(dir).length, 1)
+  const event = JSON.parse(fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0])))
+  assert.equal(event.type, 'waiting')
+  assert.equal(event.session_id, '$1')
+  assert.equal(typeof event.occurred_at, 'number')
+  assert.equal(event.completed_at, undefined)
+  status.update('working', a.env)
+  status.update('waiting', a.env)
+  assert.equal(fs.readdirSync(dir).length, 2)
+  status.remove(a)
+  assert.equal(fs.readdirSync(dir).length, 2)
 })

@@ -29,4 +29,8 @@ Local plugin managers can point directly at plugins/canvas.nvim or plugins/agent
 },
 ~~~
 
-These GitHub examples are for future publication; this repository is currently local only. Select either entry independently. Additional plugins can have their own runtime roots under plugins/. No root-level loader enables all plugins implicitly.
+Select either entry independently. Additional plugins can have their own runtime roots under plugins/. No root-level loader enables all plugins implicitly.
+
+## License
+
+All plugins in this repository are distributed under the [MIT License](LICENSE).

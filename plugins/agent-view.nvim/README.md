@@ -2,7 +2,7 @@
 
 Find your coding agents from any Neovim instance in an activity-sorted table. Each conversation has a persistent color, with separate columns for its harness, title, project scope, status and activity age. Select an entry to jump to its tmux pane, or keep editing and receive a completion notification in another editor.
 
-![Agent overview showing working, done and idle conversations](../../docs/screenshots/agents1.png)
+![Activity-sorted agent table with persistent conversation colors and working, done and idle status](../../docs/screenshots/agents1.png)
 
 ## When an agent needs attention
 
@@ -14,7 +14,7 @@ Starting folder and last edited project are separate: an agent launched from a p
 
 ## Read the activity table
 
-The current popup uses one row per agent, with the most recently active agent first. A muted key-hint line sits beside the Agents heading. The screenshots above were captured before this table layout was introduced.
+The current popup uses one row per agent, with the most recently active agent first. A muted key-hint line sits beside the Agents heading.
 
 ~~~text
 Agents · 3                         Enter focus · r refresh · q close

@@ -21,7 +21,7 @@ Canvas turns text and Markdown buffers into editing surfaces. Create and move sh
 
 Agent view shows an activity-sorted table of native conversation titles, status, starting folders and the most recently edited project. Conversation colors stay consistent across editors and resumed sessions. Select an entry to focus its pane. Completion events reach every running Neovim in the same tmux session, including the editor you switched to while an agent was working.
 
-![Agent overview showing conversations, statuses and the last edited project](docs/screenshots/agents1.png)
+![Agent activity table with conversation colors, status and latest activity](docs/screenshots/agents1.png)
 
 [Agent setup, hooks and notifications →](plugins/agent-view.nvim/README.md)
 

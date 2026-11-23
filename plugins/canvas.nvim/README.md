@@ -2,15 +2,19 @@
 
 Draw and edit text diagrams without leaving Neovim. Canvas supports rectangles, rounded/double borders, decision diamonds, free text, arrow connectors and multiline labels. Use it for flowcharts, architecture sketches and notes that remain readable in any text editor.
 
+**Edit with Canvas; share as plain text.** When you exit canvas mode, the diagram becomes ordinary text in your document. Readers need neither the plugin nor Neovim—share the saved text or Markdown file with anyone.
+
 ![Editable flowchart with element IDs and highlighted shapes](../../docs/screenshots/canvas1.png)
 
 ## Editing view → document text
 
-IDs and highlights help you select objects while Canvas is active. Leaving canvas mode removes those overlays and keeps the rendered diagram in your buffer:
+IDs and highlights help you select objects while Canvas is active. Leaving canvas mode removes those editing overlays and leaves the diagram as pure text characters in your buffer:
 
 ![The same flowchart as ordinary document text without editing overlays](../../docs/screenshots/canvas2.png)
 
-Text can be committed and read without the plugin. JSON preserves shapes, positions, labels and connections for future editing.
+Save the document and take it anywhere: another editor, a Markdown viewer, a repository, or a message. The diagram travels with the text, without a special renderer or plugin. A monospaced font preserves its alignment.
+
+Canvas and its JSON scene are only needed to resume structured diagram editing. JSON preserves shapes, positions, labels and connections; readers do not need that scene file to view the saved diagram.
 
 ## Installation
 

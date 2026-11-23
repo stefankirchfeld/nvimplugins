@@ -13,6 +13,8 @@ Install either plugin or both. They do not depend on one another, a dashboard, o
 
 Canvas turns text and Markdown buffers into editing surfaces. Create and move shapes, edit labels, and connect objects by ID. The rendered diagram remains in the document when canvas mode ends; JSON preserves its editable scene. The CLI can also move existing Markdown scenes between home storage and colocated sidecars without changing their rendered text.
 
+**The output is pure text.** The plugin is needed for structured editing; the saved document can be shared with anyone, including readers who use neither Canvas nor Neovim. A monospaced font keeps the diagram aligned.
+
 ![Canvas editing a flowchart with boxes, a decision diamond and labeled connectors](docs/screenshots/canvas1.png)
 
 [Canvas setup, controls and examples →](plugins/canvas.nvim/README.md)

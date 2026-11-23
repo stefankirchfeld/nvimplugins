@@ -1,6 +1,6 @@
 # agent-view.nvim
 
-Find your coding agents from any Neovim instance. See conversation titles, whether an agent is working or waiting for input, and the project it last edited. Select an entry to jump to its tmux pane, or keep editing and receive a completion notification in another editor.
+Find your coding agents from any Neovim instance in an activity-sorted table. Each conversation has a persistent color, with separate columns for its harness, title, project scope, status and activity age. Select an entry to jump to its tmux pane, or keep editing and receive a completion notification in another editor.
 
 ![Agent overview showing working, done and idle conversations](../../docs/screenshots/agents1.png)
 
@@ -11,6 +11,34 @@ Permission requests mark the agent as waiting, helping you find the pane that ne
 ![Agent overview showing an agent waiting for approval](../../docs/screenshots/agents2.png)
 
 Starting folder and last edited project are separate: an agent launched from a parent directory can work across repositories without losing that original scope.
+
+## Read the activity table
+
+The current popup uses one row per agent, with the most recently active agent first. A muted key-hint line sits beside the Agents heading. The screenshots above were captured before this table layout was introduced.
+
+~~~text
+Agents · 3                         Enter focus · r refresh · q close
+
+Agent   │ Conversation           │ Scope → last edit │ Status    │ Activity
+────────┼────────────────────────┼───────────────────┼───────────┼─────────
+Codex   │ Refine agent overview  │ src → nvimplugins │ working   │ 3s ago
+Claude  │ Review API changes     │ src → api         │ waiting   │ 1m ago
+Codex   │ Update documentation   │ docs              │ done      │ 8m ago
+~~~
+
+| Column | Meaning |
+| --- | --- |
+| Agent | Harness, such as Codex or Claude. |
+| Conversation | Native session title, colored consistently across editors. |
+| Scope → last edit | Starting folder and most recently edited project. |
+| Status | Explicit idle, working, waiting, done or error state. |
+| Activity | Time since the latest status/tool activity. |
+
+Idle and done have no leading icon. Working, waiting and error can show attention glyphs; `status_icons = false` hides them. Done means the agent turn finished, rather than confirming task success or marking a row as selected.
+
+The popup grows with the agent count, within the configured height and available space. Long cells are clipped with an ellipsis, and narrow windows hide secondary columns. Selection follows the same agent when new activity reorders the table.
+
+Conversation colors are persisted by native conversation ID in the shared state directory, so they survive editor restarts and resumed launches. The color pool reuses colors after it is exhausted. Configure the same `colors` pool in each editor to keep their colors matching.
 
 ## How it works
 
@@ -77,7 +105,7 @@ Start an agent inside tmux. Run `:Agents` or press `<leader>aa` in Neovim, send 
 | `r` | Refresh. |
 | `q` / Escape | Close. |
 
-Each row represents one agent, sorted by latest activity first. Conversation colors are assigned from a pool and stored in the shared state directory, so they remain stable across editors and resumed conversations. The pool reuses colors after it is exhausted. Idle/done use plain status text; working/waiting/error include an attention glyph. Key hints appear as muted virtual text beside the title. Inside its tmux server, focus switches session/window/pane; outside that server, navigation opens a terminal attachment in Neovim.
+Selecting a row focuses that agent. Inside its tmux server, focus switches session/window/pane; outside that server, navigation opens a terminal attachment in Neovim.
 
 ~~~lua
 require('agent_view').setup({

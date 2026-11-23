@@ -126,6 +126,22 @@ apply with `:w` to resume following, or close with `:q` to discard the draft.
 Following works with horizontal and vertical editors, including diamonds and
 the pure free-text editor. Editors remain scoped to their original canvas.
 
+Use `canvas change-persistence architecture.md` to move every canvas in an
+existing Markdown document to the default home storage. Use
+`canvas change-persistence architecture.md --mode colocated` for the reverse.
+
+Default mode uses `~/.canvas-nvim/canvases/` and Vim's document-path slug and
+canvas-order suffixes, and removes `file=` from the fences. Colocated mode
+writes `architecture.canvas.json`, `architecture_2.canvas.json`, etc. beside
+the document and adds relative references. Rendered diagrams and prose are
+preserved, including fence style and line endings.
+
+Every source and destination is checked before writing. Different existing
+destination states require `--force`; identical states are accepted. Old source
+files are removed after writing the states and updating the document. Use
+`--keep-source` when other documents share those states. Save or discard
+pending Vim canvas edits before running the command, then reload the document.
+
 A Markdown document can contain multiple canvas fences with separate `file=`
 sidecars. Backtick and tilde fences are supported, including longer delimiters
 and up to three leading spaces. Put the cursor inside a block or on its fence tag and run `:Canvas`

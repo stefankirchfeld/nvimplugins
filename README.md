@@ -11,7 +11,7 @@ Install either plugin or both. They do not depend on one another, a dashboard, o
 
 ## Draw diagrams where you write
 
-Canvas turns text and Markdown buffers into editing surfaces. Create and move shapes, edit labels, and connect objects by ID. The rendered diagram remains in the document when canvas mode ends; JSON preserves its editable scene.
+Canvas turns text and Markdown buffers into editing surfaces. Create and move shapes, edit labels, and connect objects by ID. The rendered diagram remains in the document when canvas mode ends; JSON preserves its editable scene. The CLI can also move existing Markdown scenes between home storage and colocated sidecars without changing their rendered text.
 
 ![Canvas editing a flowchart with boxes, a decision diamond and labeled connectors](docs/screenshots/canvas1.png)
 
@@ -19,7 +19,7 @@ Canvas turns text and Markdown buffers into editing surfaces. Create and move sh
 
 ## Find the agent that needs you
 
-Agent view lists native conversation titles, working/waiting/done status, starting folders and the most recently edited project. Select an entry to focus its pane. Completion events reach every running Neovim in the same tmux session, including the editor you switched to while an agent was working.
+Agent view shows an activity-sorted table of native conversation titles, status, starting folders and the most recently edited project. Conversation colors stay consistent across editors and resumed sessions. Select an entry to focus its pane. Completion events reach every running Neovim in the same tmux session, including the editor you switched to while an agent was working.
 
 ![Agent overview showing conversations, statuses and the last edited project](docs/screenshots/agents1.png)
 

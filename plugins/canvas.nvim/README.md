@@ -119,6 +119,25 @@ Relative `file=` paths resolve alongside the document. Multiple fences can use s
 
 For rendered-only documents, omit `file=` and keep scene JSON locally under `~/.canvas-nvim/canvases/`. Keep canvas ordering stable because implicit paths include the document path and block order. The [architecture walkthrough](docs/canvas-architecture.md) is an editable example.
 
+## Move existing diagrams between storage modes
+
+The CLI can move every canvas in an existing Markdown document between local home storage and sidecars beside the document:
+
+~~~sh
+# Store scenes under ~/.canvas-nvim/canvases/ and remove file= references.
+canvas change-persistence notes.md
+
+# Store notes.canvas.json, notes_2.canvas.json, ... beside notes.md.
+canvas change-persistence notes.md --mode colocated
+
+# Keep old states if other documents reference the same files.
+canvas change-persistence notes.md --keep-source
+~~~
+
+The command preserves diagram text, prose, fence styles and line endings. It validates source scenes and checks destination conflicts before writing. Identical destination states are accepted; a different existing state requires `--force` to replace it.
+
+After successfully writing the destination states and updating the document references, it removes old source files unless `--keep-source` is set. Save or discard any active Neovim canvas edits before running the command, then reload the document. See the [CLI reference](tools/canvas-cli/README.md) for details.
+
 ## CLI and coding-agent skill
 
 The optional `canvas` CLI uses the same Lua engine. It creates scenes, adds/moves/deletes objects, connects shapes, renders Markdown and validates text crossing box borders. Coding agents can generate an editable scene rather than just an image.

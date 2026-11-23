@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from persistence import change_persistence
 
 
 class CanvasError(Exception):
@@ -63,6 +64,11 @@ def engine(request):
 def parser():
     cli = argparse.ArgumentParser(description='Create and inspect canvas.nvim diagrams. Coordinates are 1-based rows and columns.')
     commands = cli.add_subparsers(dest='command', required=True)
+    persistence = commands.add_parser('change-persistence', help='Move all Markdown canvas states between home storage and colocated sidecars')
+    persistence.add_argument('file', type=Path, help='Markdown document path')
+    persistence.add_argument('--mode', choices=('default', 'colocated'), default='default')
+    persistence.add_argument('--force', action='store_true', help='Replace conflicting destination states')
+    persistence.add_argument('--keep-source', action='store_true', help='Keep old sidecars, e.g. when shared by other documents')
     help_text = {
         'create': 'Create an empty JSON sidecar', 'box': 'Add a rectangle or diamond with attached multiline plain text',
         'text': 'Add free text (multiline supported)', 'connect': 'Connect two shape IDs, or a shape to a position',
@@ -125,6 +131,9 @@ def parser():
 
 def run(args):
     path = args.file.expanduser().resolve()
+    if args.command == 'change-persistence':
+        emit(change_persistence(path, args.mode, args.force, args.keep_source, write, CanvasError))
+        return
     if args.command == 'create' and path.exists() and not args.force:
         raise CanvasError(f'{path} already exists; use --force to replace it')
     request = {'op': args.command}

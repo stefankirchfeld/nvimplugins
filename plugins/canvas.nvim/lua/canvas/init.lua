@@ -1,4 +1,20 @@
 local M = {}
+local config = { keymaps = {} }
+local mappings = require('canvas.mappings')
+function M.setup(opts)
+  config = opts or {}
+  if config.keymaps == nil then config.keymaps = {} end
+end
+local function bind(buf, action, default, callback, opts)
+  local name = action:sub(1,1):upper() .. action:sub(2):gsub('_(%l)', string.upper)
+  mappings.set(buf, 'canvas', '<Plug>(Canvas' .. name .. ')', callback, opts)
+  if config.keymaps == false then return end
+  local key = config.keymaps[action]
+  if key == nil then key = default end
+  if key == false then return end
+  mappings.set(buf, 'canvas', key, callback, opts)
+end
+
 
 local state   = require('canvas.state')
 local parser  = require('canvas.parser')
@@ -292,9 +308,7 @@ local function exit_move_mode(buf)
   move_state[buf] = nil
   if state.for_buf(buf).active then indicator.show(buf) end
   vim.notify('canvas: move mode off (box ' .. tostring(was_id) .. ')', vim.log.levels.INFO)
-  for _, key in ipairs({'h','j','k','l','H','J','K','L','<Up>','<Down>','<Left>','<Right>','<S-Up>','<S-Down>','<S-Left>','<S-Right>','<Esc>','<CR>'}) do
-    pcall(vim.keymap.del, 'n', key, { buffer = buf })
-  end
+  mappings.clear(buf, 'move')
 end
 
 local function enter_move_mode(buf, id)
@@ -322,24 +336,24 @@ local function enter_move_mode(buf, id)
   end
 
   local mopts = { buffer = buf, nowait = true, silent = true }
-  vim.keymap.set('n', 'h',        function() move( 0,-1) end, mopts)
-  vim.keymap.set('n', 'l',        function() move( 0, 1) end, mopts)
-  vim.keymap.set('n', 'k',        function() move(-1, 0) end, mopts)
-  vim.keymap.set('n', 'j',        function() move( 1, 0) end, mopts)
-  vim.keymap.set('n', 'H',        function() move( 0,-3) end, mopts)
-  vim.keymap.set('n', 'L',        function() move( 0, 3) end, mopts)
-  vim.keymap.set('n', 'K',        function() move(-3, 0) end, mopts)
-  vim.keymap.set('n', 'J',        function() move( 3, 0) end, mopts)
-  vim.keymap.set('n', '<Left>',   function() move( 0,-1) end, mopts)
-  vim.keymap.set('n', '<Right>',  function() move( 0, 1) end, mopts)
-  vim.keymap.set('n', '<Up>',     function() move(-1, 0) end, mopts)
-  vim.keymap.set('n', '<Down>',   function() move( 1, 0) end, mopts)
-  vim.keymap.set('n', '<S-Left>',  function() move( 0,-3) end, mopts)
-  vim.keymap.set('n', '<S-Right>', function() move( 0, 3) end, mopts)
-  vim.keymap.set('n', '<S-Up>',    function() move(-3, 0) end, mopts)
-  vim.keymap.set('n', '<S-Down>',  function() move( 3, 0) end, mopts)
-  vim.keymap.set('n', '<CR>',     function() exit_move_mode(buf) end, mopts)
-  vim.keymap.set('n', '<Esc>',    function() exit_move_mode(buf) end, mopts)
+  mappings.set(buf, 'move', 'h',        function() move( 0,-1) end, mopts)
+  mappings.set(buf, 'move', 'l',        function() move( 0, 1) end, mopts)
+  mappings.set(buf, 'move', 'k',        function() move(-1, 0) end, mopts)
+  mappings.set(buf, 'move', 'j',        function() move( 1, 0) end, mopts)
+  mappings.set(buf, 'move', 'H',        function() move( 0,-3) end, mopts)
+  mappings.set(buf, 'move', 'L',        function() move( 0, 3) end, mopts)
+  mappings.set(buf, 'move', 'K',        function() move(-3, 0) end, mopts)
+  mappings.set(buf, 'move', 'J',        function() move( 3, 0) end, mopts)
+  mappings.set(buf, 'move', '<Left>',   function() move( 0,-1) end, mopts)
+  mappings.set(buf, 'move', '<Right>',  function() move( 0, 1) end, mopts)
+  mappings.set(buf, 'move', '<Up>',     function() move(-1, 0) end, mopts)
+  mappings.set(buf, 'move', '<Down>',   function() move( 1, 0) end, mopts)
+  mappings.set(buf, 'move', '<S-Left>',  function() move( 0,-3) end, mopts)
+  mappings.set(buf, 'move', '<S-Right>', function() move( 0, 3) end, mopts)
+  mappings.set(buf, 'move', '<S-Up>',    function() move(-3, 0) end, mopts)
+  mappings.set(buf, 'move', '<S-Down>',  function() move( 3, 0) end, mopts)
+  mappings.set(buf, 'move', '<CR>',     function() exit_move_mode(buf) end, mopts)
+  mappings.set(buf, 'move', '<Esc>',    function() exit_move_mode(buf) end, mopts)
 end
 
 -- ─── Re-render (zone-scoped) ──────────────────────────────────────────────────
@@ -455,9 +469,7 @@ local function deactivate(buf)
   vim.api.nvim_buf_clear_namespace(buf, state.ns_hl, 0, -1)
   exit_move_mode(buf)
   indicator.hide(buf)
-  for _, key in ipairs({'<leader>dc','e','ev','d','m','<leader>dr','q'}) do
-    pcall(vim.keymap.del, 'n', key, { buffer = buf })
-  end
+  mappings.clear(buf, 'canvas')
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_get_buf(win) == buf then vim.wo[win].virtualedit = '' end
   end
@@ -473,7 +485,7 @@ local function activate(buf, row_start, row_end)
 
   local opts = { buffer = buf, nowait = true, silent = true }
 
-  vim.keymap.set('n', '<leader>dc', function()
+  bind(buf, 'draw', '<leader>dc', function()
     local buf_row = vim.fn.line('.')
     local col     = vim.fn.virtcol('.')
     local zrow    = to_zone_row(buf, buf_row)
@@ -501,10 +513,10 @@ local function activate(buf, row_start, row_end)
 
   -- e must wait for a possible v so the longer mapping can match.
   local edit_opts = vim.tbl_extend('force', opts, { nowait = false })
-  vim.keymap.set('n', 'e', function() edit_at_cursor(false) end, edit_opts)
-  vim.keymap.set('n', 'ev', function() edit_at_cursor(true) end, edit_opts)
+  bind(buf, 'edit', 'e', function() edit_at_cursor(false) end, edit_opts)
+  bind(buf, 'edit_vertical', 'ev', function() edit_at_cursor(true) end, edit_opts)
 
-  vim.keymap.set('n', 'd', function()
+  bind(buf, 'delete', 'd', function()
     if not commands then commands = require('canvas.commands') end
     local zrow = to_zone_row(buf, vim.fn.line('.'))
     local col  = vim.fn.virtcol('.')
@@ -519,7 +531,7 @@ local function activate(buf, row_start, row_end)
     vim.api.nvim_feedkeys('d', 'n', true)
   end, opts)
 
-  vim.keymap.set('n', 'm', function()
+  bind(buf, 'move', 'm', function()
     if not commands then commands = require('canvas.commands') end
     local zrow = to_zone_row(buf, vim.fn.line('.'))
     local col  = vim.fn.virtcol('.')
@@ -528,12 +540,13 @@ local function activate(buf, row_start, row_end)
     enter_move_mode(buf, id)
   end, opts)
 
-  vim.keymap.set('n', '<leader>dr', function() M.rerender(buf) end, opts)
-  vim.keymap.set('n', 'q',          function() deactivate(buf) end, opts)
+  bind(buf, 'rerender', '<leader>dr', function() M.rerender(buf) end, opts)
+  bind(buf, 'quit', 'q',          function() deactivate(buf) end, opts)
 
   vim.wo.virtualedit = 'all'
   M.rerender(buf)
   indicator.show(buf)
+  if config.on_attach then config.on_attach(buf) end
   vim.notify('canvas: on  — <leader>dc draw  e/ev edit  d delete  m move  q exit', vim.log.levels.INFO)
 end
 

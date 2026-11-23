@@ -35,6 +35,14 @@ class CanvasCLI(unittest.TestCase):
             args.extend(['--' + key.replace('_', '-'), value])
         return json.loads(self.call('box', *args).stdout)['id']
 
+    def test_configurable_keys_and_mapping_restoration(self):
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l',
+                                 str(ROOT / 'tools/canvas-cli/tests/check_config.lua')],
+                                env={**os.environ, 'CANVAS_TEST_ROOT': str(ROOT)},
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('PASS:', result.stdout + result.stderr)
+
     def test_render_and_literal_labels(self):
         self.box('API, (Gateway)', shape='br', fg='#112233', bg='#334455')
         original = self.state.read_bytes()

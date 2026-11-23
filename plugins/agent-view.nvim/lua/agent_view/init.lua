@@ -3,6 +3,7 @@ local uv = vim.uv or vim.loop
 -- Dispose the previous monitor when this module is reloaded in a running editor.
 if _G.agent_view_shutdown then _G.agent_view_shutdown() end
 local config = {}
+local global_keymap
 local view
 local icons = { idle = '', working = '󰔟', waiting = '󰋗', done = '󰄬', error = '󰅚' }
 local highlights = { idle = 'Comment', working = 'DiagnosticInfo', waiting = 'DiagnosticWarn', done = 'DiagnosticOk', error = 'DiagnosticError' }
@@ -56,7 +57,14 @@ local function render()
   local on_context = view.context_rows and view.context_rows[cursor]
   view.entries = M.records()
   view.rows, view.context_rows = {}, {}
-  local lines = { '  Agents', '  Enter: focus agent   r: refresh   q: close' }
+  local function hint(action, default)
+    local key = config.buffer_keymaps and config.buffer_keymaps[action]
+    if key == nil then key = default end
+    if key == false then return '(unmapped)' end
+    return type(key) == 'table' and table.concat(key, '/') or key
+  end
+  local lines = { '  Agents', string.format('  %s: focus agent   %s: refresh   %s: close',
+    hint('focus', '<CR>'), hint('refresh', 'r'), hint('close', 'q/<Esc>')) }
   local selected = 3
   for index, entry in ipairs(view.entries) do
     local name = vim.fn.fnamemodify(entry.folder, ':t')
@@ -135,12 +143,19 @@ function M.toggle()
   vim.wo[win].relativenumber = false
   vim.wo[win].cursorline = true
   view = { buf = buf, win = win, entries = {}, ns = vim.api.nvim_create_namespace('AgentView'), timer = uv.new_timer() }
-  vim.keymap.set('n', 'q', close, { buffer = buf, desc = 'Close agent overview' })
-  vim.keymap.set('n', '<Esc>', close, { buffer = buf })
-  vim.keymap.set('n', 'r', render, { buffer = buf })
-  vim.keymap.set('n', '<CR>', function()
+  local function bind(action, defaults, callback, desc)
+    local configured = config.buffer_keymaps and config.buffer_keymaps[action]
+    local keys = configured == nil and defaults or configured
+    if keys == false then return end
+    if type(keys) == 'string' then keys = { keys } end
+    for _, key in ipairs(keys) do vim.keymap.set('n', key, callback, { buffer = buf, desc = desc }) end
+  end
+  bind('close', { 'q', '<Esc>' }, close, 'Close agent overview')
+  bind('refresh', { 'r' }, render, 'Refresh agents')
+  bind('focus', { '<CR>' }, function()
     if view then M.jump(view.rows[vim.api.nvim_win_get_cursor(win)[1]]) end
-  end, { buffer = buf, desc = 'Focus selected agent' })
+  end, 'Focus selected agent')
+  if config.on_attach then config.on_attach(buf) end
   vim.api.nvim_create_autocmd('WinClosed', { pattern = tostring(win), once = true, callback = close })
   view.timer:start(0, 1000, vim.schedule_wrap(function()
     if not view or not vim.api.nvim_win_is_valid(view.win) then close(); return end
@@ -152,7 +167,11 @@ end
 function M.setup(opts)
 config = opts or {}
 if _G.agent_view_shutdown then _G.agent_view_shutdown() end
-if config.keymap ~= false then vim.keymap.set('n', config.keymap or '<leader>aa', M.toggle, { desc = 'Agent overview' }) end
+if global_keymap then pcall(vim.keymap.del, 'n', global_keymap); global_keymap = nil end
+if config.keymap ~= false then
+  global_keymap = config.keymap or '<leader>aa'
+  vim.keymap.set('n', global_keymap, M.toggle, { desc = 'Agent overview' })
+end
 M.close = close
 vim.api.nvim_create_user_command('Agents', M.toggle, { desc = 'Show running coding agents', force = true })
 
@@ -210,6 +229,7 @@ monitor:start(1000, 1000, vim.schedule_wrap(function()
 end))
 local function shutdown()
   close()
+  if global_keymap then pcall(vim.keymap.del, 'n', global_keymap); global_keymap = nil end
   if not monitor:is_closing() then monitor:stop(); monitor:close() end
 end
 _G.agent_view_shutdown = shutdown

@@ -1,0 +1,23 @@
+vim.opt.rtp:prepend(vim.env.CANVAS_TEST_ROOT)
+vim.notify = function() end
+local canvas = require('canvas')
+local buf = vim.api.nvim_get_current_buf()
+local original = function() end
+vim.keymap.set('n', 'e', original, { buffer = buf })
+local attached = 0
+canvas.setup({ keymaps = { draw = '<leader>x', delete = false }, on_attach = function(b) assert(b == buf); attached = attached + 1 end })
+canvas.open()
+assert(attached == 1)
+assert(vim.fn.maparg('<leader>x', 'n') ~= '')
+assert(vim.fn.maparg('<leader>dc', 'n') == '')
+assert(vim.fn.maparg('d', 'n') == '')
+assert(vim.fn.maparg('e', 'n', false, true).callback ~= original)
+canvas.open()
+assert(vim.fn.maparg('e', 'n', false, true).callback == original, 'prior mapping was not restored')
+assert(vim.fn.maparg('<leader>x', 'n') == '')
+canvas.setup({ keymaps = false })
+canvas.open()
+assert(vim.fn.maparg('m', 'n') == '')
+canvas.open()
+print('PASS: custom Canvas keys, disabled mappings, on_attach and prior-map restoration')
+vim.cmd('qa!')

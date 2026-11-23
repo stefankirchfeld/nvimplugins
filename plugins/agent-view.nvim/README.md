@@ -1,63 +1,161 @@
 # agent-view.nvim
 
-Local Claude, Codex and Pi tracking, independent of any dashboard. Node.js built-ins write metadata; Neovim displays it. tmux is used only for navigation/session scope. No networking or transcript parsing.
+Find your coding agents from any Neovim instance. See conversation titles, whether an agent is working or waiting for input, and the project it last edited. Select an entry to jump to its tmux pane, or keep editing and receive a completion notification in another editor.
 
-## Install
+![Agent overview showing working, done and idle conversations](../../docs/screenshots/agents1.png)
 
-Use this directory as a standalone Neovim runtime root. With lazy.nvim and a local checkout:
+## When an agent needs attention
+
+Permission requests mark the agent as waiting, helping you find the pane that needs your answer:
+
+![Agent overview showing an agent waiting for approval](../../docs/screenshots/agents2.png)
+
+Starting folder and last edited project are separate: an agent launched from a parent directory can work across repositories without losing that original scope.
+
+## How it works
+
+The launcher registers each agent and loads its harness adapter. Hooks write local JSON; every editor reads the shared directory. No tracking server, networking, worktree manager or transcript parsing is involved. Native terminal titles supply conversation names; recognized edit events supply the last edited project.
+
+| Harness | Adapter | Verification |
+| --- | --- | --- |
+| Claude Code | Per-launch `--settings` hooks. | Exercised in real sessions. |
+| Codex | Guarded command hooks in `CODEX_HOME/hooks.json`. | Exercised in real sessions. |
+| Pi | Per-launch session/tool extension. | Adapter provided; a real Pi session is not yet verified. |
+
+Requires Neovim, Node.js and your chosen CLI on PATH. tmux enables pane navigation and session-scoped notifications. Tested with Neovim 0.12.1. Use a Nerd Font for the overview's icons.
+
+## Quick start
+
+### 1. Install the Neovim UI
 
 ~~~lua
-{ dir = vim.fn.expand('~/src/stefankirchfeld/nvimplugins/plugins/agent-view.nvim'),
-  name = 'agent-view.nvim', lazy = false,
-  config = function()
+{
+  'stefankirchfeld/nvimplugins',
+  name = 'agent-view.nvim',
+  lazy = false, -- start background completion monitoring with the editor
+  config = function(plugin)
+    vim.opt.rtp:prepend(plugin.dir .. '/plugins/agent-view.nvim')
     require('agent_view').setup({ notification_timeout = 5000 })
-  end }
+  end,
+}
 ~~~
 
-Source scripts/agent-shell.zsh from your interactive zsh config. The claude/codex/pi functions launch in the current folder and preserve CLI arguments. Use command claude to bypass tracking deliberately.
+Local checkouts can use `plugins/agent-view.nvim` directly. If you used the [landing-page spec](../../README.md#install-with-lazynvim), your lazy.nvim checkout is named `nvimplugins` rather than `agent-view.nvim` in the shell path below.
 
-Link bin/nvim-agent into your PATH for dashboard/other integrations. Usage:
+### 2. Register shell launches and Codex hooks
+
+Set the root to your checkout's plugin directory. With the single-plugin spec above:
 
 ~~~sh
-nvim-agent codex --cwd "$PWD" -- resume
-node scripts/install-agent-hooks.cjs
+AGENT_VIEW_ROOT="$HOME/.local/share/nvim/lazy/agent-view.nvim/plugins/agent-view.nvim"
+node "$AGENT_VIEW_ROOT/scripts/install-agent-hooks.cjs"
+source "$AGENT_VIEW_ROOT/scripts/agent-shell.zsh"
 ~~~
 
-Claude loads per-launch settings, Pi loads its per-launch extension, and Codex uses guarded hooks in CODEX_HOME/hooks.json. Newly installed Codex command hooks may require native trust approval. The launcher uses --no-daemon --enable hooks to preserve per-agent environment.
+Put the root definition and source line in `~/.zshrc` for future interactive shells. `claude`, `codex` and `pi` then register agents, preserve CLI arguments, and use the current folder. Installing the UI alone cannot register a raw CLI process. `command claude` deliberately bypasses tracking.
 
-## Neovim
+Codex may ask you to approve newly installed hooks. The installer backs up `hooks.json` and preserves unrelated entries. The launcher enables hooks and uses `--no-daemon` so each agent's environment reaches them. Claude/Pi load their adapters per launch; no global Claude hook installation is needed. Existing processes need a relaunch to receive per-launch adapters.
 
-:Agents or Space a a toggles the overview. Enter focuses the recorded pane, r refreshes, q closes. Two-line items show conversation title, status, starting folder and last edited project.
+Other shells can call the launcher directly:
+
+~~~sh
+node "$AGENT_VIEW_ROOT/scripts/run-assistant.cjs" codex --cwd "$PWD" -- resume
+~~~
+
+Optionally link `bin/nvim-agent` onto PATH, then use `nvim-agent claude --cwd "$PWD" -- --resume`. Everything after `--` goes to the harness.
+
+### 3. Open the overview
+
+Start an agent inside tmux. Run `:Agents` or press `<leader>aa` in Neovim, send the agent a prompt and watch its status. Open another Neovim in the same tmux session to receive its completion notification there.
+
+## Controls and configuration
+
+| Default key | Action |
+| --- | --- |
+| `<leader>aa` | Toggle the overview. |
+| Enter | Focus the selected agent pane. |
+| `r` | Refresh. |
+| `q` / Escape | Close. |
+
+Either row selects the same agent. Inside its tmux server, focus switches session/window/pane; outside that server, navigation opens a terminal attachment in Neovim.
 
 ~~~lua
 require('agent_view').setup({
-  notification_timeout = 5000,
-  keymap = '<leader>aa', -- false disables the mapping
-  session_scope = true, -- false shows completion events across tmux sessions
-  -- state_dir = '/your/shared/state',
+  keymap = '<leader>aa',        -- false disables the global toggle
+  notification_timeout = 5000, -- milliseconds
+  session_scope = true,        -- false includes other tmux sessions
+  -- state_dir = vim.fn.expand('~/.local/state/my-agents'),
+  buffer_keymaps = {
+    focus = '<CR>',
+    refresh = 'r',             -- false disables an action
+    close = { 'q', '<Esc>' },  -- strings or lists are accepted
+  },
+  on_attach = function(buf)
+    vim.keymap.set('n', '<leader>x', require('agent_view').close,
+      { buffer = buf, desc = 'Close agents' })
+  end,
 })
 ~~~
 
-Completion files are read independently by every editor in the same tmux socket/session. Quick next turns and agent exit cannot erase them. Notifications last five seconds; old events do not replay when an editor starts. Module reload keeps its cursor. An editor that isn't running cannot display notifications.
+For your own global shortcut, set `keymap = false` and map `require('agent_view').toggle` with `vim.keymap.set()`. Use `buffer_keymaps` for popup controls; `on_attach` runs afterwards and can add or override local keys. Changes apply to the next opened popup.
 
-The optional agent_view.prompt module offers open(), open_visual(), and open_ref(). It sends only to a registered neighboring agent in the current tmux window/server. Missing or ambiguous targets preserve the prompt and report an error; it never falls back to another session. :Wai WINDOW selects a window within the current session.
+## Completion notifications
 
-## State and lifecycle
+Each running Neovim in the agent's tmux socket/session reads completion events independently. One editor does not consume the event for another. Events survive quick next turns and agent exit; repeated done status does not produce another notification.
 
-NVIM_AGENTS_DIR overrides the shared state directory. The compatibility default remains ~/.local/state/mesa/agents to preserve existing metadata during extraction; the directory name is historical and no Mesa code is required. Set state_dir and NVIM_AGENTS_DIR together when changing location.
+The plugin calls `vim.notify()` with a five-second timeout. **Floating timed popups need a notifier that honors that option**, such as [snacks.nvim](https://github.com/folke/snacks.nvim) or [nvim-notify](https://github.com/rcarriga/nvim-notify). Otherwise, Neovim's normal notification display is used.
 
-- Live JSON files belong to launcher PIDs; normal exit removes them and editors ignore stale PIDs.
-- conversations/ persists title and last-edit metadata under a hash of harness + native conversation ID. Resume restores details without restoring old status or tmux coordinates.
-- notifications/ contains atomic completion events retained for seven days. Each editor deduplicates independently.
+Events older than the editor's initial plugin setup are ignored. Restarting does not replay old completions; module reload preserves that editor's cursor. Outside tmux, all sessions are included. Neovim must be running to show notifications.
 
-Claude/Codex hook session_id is recorded as conversation_id; live session_id remains the tmux ID. Pi uses sessionManager.getSessionId(). Write/Edit/apply_patch events capture creations and rename destinations. Arbitrary shell changes aren't inferred. Approval resolution has no separate hook: waiting resumes on the next tool event. Done means the agent turn finished, not guaranteed task success.
+## Optional scratch prompts
 
-Existing Mesa environment variables are accepted by the writer solely for migration. To replace only old owned Codex hooks, use install-agent-hooks.cjs --migrate-from /old/scripts. To remove this plugin's hooks use --remove. Other hooks are preserved and hooks.json is backed up.
+Send file context or a visual selection to the neighboring registered agent:
 
-## Verification
+~~~lua
+vim.keymap.set('n', '<leader>ai', function()
+  require('agent_view.prompt').open()
+end, { desc = 'Prompt agent with file context' })
+vim.keymap.set('v', '<leader>ai', function()
+  require('agent_view.prompt').open_visual()
+end, { desc = 'Prompt agent with selection' })
+~~~
+
+Write your request in the scratch buffer; `:w` sends it. `open_ref()` sends only a file/line reference. `:Wai WINDOW` selects a window within the current session. Routing uses registered pane IDs in the current window/socket. Missing or ambiguous targets preserve the prompt and report an error rather than guessing another session.
+
+## Status and storage
+
+| Status | Meaning |
+| --- | --- |
+| idle | Registered, awaiting a prompt. |
+| working | Prompt/tool events report activity. |
+| waiting | Permission or input is requested. |
+| done | Turn finished; it does not guarantee task success. |
+
+Approval resolution has no separate hook here, so waiting can linger until the next tool event. Project tracking recognizes Write/Edit/apply_patch, including creation and patch renames. Arbitrary shell edits are not inferred.
+
+The shared directory stores live launcher records, `conversations/` metadata keyed by harness + native conversation ID, and `notifications/` completion events retained for seven days. Resume restores project/file metadata with fresh status and tmux coordinates. Dead launchers are ignored and normal exit removes live records.
+
+If you customize storage, set `NVIM_AGENTS_DIR` for agents and `state_dir` for editors to the **same directory**. The historical compatibility default is `~/.local/state/mesa/agents` or its XDG equivalent; no Mesa code is required. Old environment names remain accepted for migration. Titles and edited file paths are stored locally, but prompts, tokens and transcript bodies are not.
+
+## Troubleshooting and removal
+
+- **No agents listed:** use the shell functions or launcher; UI installation alone is insufficient.
+- **No completion popup:** check setup in both editors, matching state paths/tmux scope, and a notifier that supports timed popups.
+- **No project label yet:** make a recognized edit; old deleted metadata and shell-only edits cannot be reconstructed.
+- **Missing icons:** configure a Nerd Font in the terminal.
+
+Remove only this plugin's Codex hooks:
+
+~~~sh
+node "$AGENT_VIEW_ROOT/scripts/install-agent-hooks.cjs" --remove
+~~~
+
+Remove the zsh source line and Neovim spec to disable registration/UI. Other hooks are preserved. `--migrate-from /old/scripts` replaces only matching legacy entries.
+
+## Development and license
 
 ~~~sh
 node --test test/*.test.cjs
 ~~~
 
-Tests use dummy harnesses and isolated state, including two real headless Neovim processes. Pi's adapter has not been exercised against a real Pi installation.
+Tests use isolated state and dummy harnesses, including two real headless Neovim processes. [MIT License](../../LICENSE).

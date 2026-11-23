@@ -294,3 +294,15 @@ test('concurrent title refresh cannot overwrite edit/status metadata', async () 
   assert.equal(fs.readdirSync(registration.dir).some(file => file.endsWith('.lock')), false)
   status.remove(registration)
 })
+
+
+test('configurable UI bindings and scoped routing work in Neovim', t => {
+  if (spawnSync('nvim', ['--version']).error) return t.skip('Neovim is not installed')
+  for (const script of ['check-config.lua', 'check-routing.lua']) {
+    const result = spawnSync('nvim', ['--headless', '-u', 'NONE', '-i', 'NONE', '-l', path.join(__dirname, script)], {
+      env: { ...process.env, AGENT_VIEW_ROOT: path.resolve(__dirname, '..') }, encoding: 'utf8', timeout: 15000,
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(result.stdout + result.stderr, /PASS:/)
+  }
+})
